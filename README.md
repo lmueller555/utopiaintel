@@ -120,6 +120,17 @@ Configure the exact same `DATABASE_URL` as the Streamlit app and set the same
 https://your-api-host.example/api/v1/intel-submissions
 ```
 
+After deployment, verify the service and its database connection:
+
+```bash
+curl --fail https://your-api-host.example/health
+```
+
+The response should be `{"database":"connected","status":"ok"}`. Opening the
+API's root URL also returns a short index of the available routes. See
+[`docs/API_DEPLOYMENT.md`](docs/API_DEPLOYMENT.md) for the complete deployment,
+capture-client configuration, and end-to-end verification checklist.
+
 Do not put database credentials in a browser extension. The capture client only
 receives a revocable ingestion key.
 
@@ -130,7 +141,7 @@ receives a revocable ingestion key.
 | `DATABASE_URL` | Production | Shared PostgreSQL connection; defaults to local SQLite |
 | `INGESTION_API_KEY` | Yes | Secret accepted by the API and manual capture form |
 | `MAX_PAYLOAD_BYTES` | No | Maximum combined HTML/text size; defaults to 1 MiB |
-| `ALLOWED_ORIGINS` | No | Comma-separated browser origins allowed to submit intel |
+| `ALLOWED_ORIGINS` | No | Comma-separated browser origins allowed to submit intel; both Utopia hostnames are allowed by default |
 
 ## Tests
 

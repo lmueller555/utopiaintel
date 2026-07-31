@@ -5,6 +5,8 @@ from __future__ import annotations
 import hmac
 
 from flask import Flask, jsonify, make_response, request
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import Settings
 from app.database import initialize_database, make_engine, make_session_factory, session_scope
@@ -26,6 +28,16 @@ def create_app(settings: Settings | None = None) -> Flask:
     initialize_database(engine)
     session_factory = make_session_factory(engine)
 
+    @app.get("/")
+    def index():
+        return jsonify(
+            {
+                "service": "Utopia Intel ingestion API",
+                "health": "/health",
+                "submissions": "/api/v1/intel-submissions",
+            }
+        )
+
     @app.after_request
     def add_cors_headers(response):
         origin = request.headers.get("Origin", "").rstrip("/")
@@ -38,7 +50,24 @@ def create_app(settings: Settings | None = None) -> Flask:
 
     @app.get("/health")
     def health():
-        return jsonify({"status": "ok"})
+        try:
+            with engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+        except SQLAlchemyError:
+            return jsonify({"status": "unavailable", "database": "disconnected"}), 503
+        return jsonify({"status": "ok", "database": "connected"})
+
+    @app.errorhandler(413)
+    def payload_too_large(_error):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "The request exceeds the configured payload size limit.",
+                }
+            ),
+            413,
+        )
 
     @app.route("/api/v1/intel-submissions", methods=["POST", "OPTIONS"])
     def create_submission():

@@ -18,7 +18,10 @@ class Settings:
     database_url: str
     ingestion_api_key: str
     max_payload_bytes: int
-    allowed_origins: tuple[str, ...] = ("https://utopia-game.com",)
+    allowed_origins: tuple[str, ...] = (
+        "https://utopia-game.com",
+        "https://www.utopia-game.com",
+    )
 
     @classmethod
     def load(cls, secrets: Mapping[str, Any] | None = None) -> "Settings":
@@ -38,7 +41,9 @@ class Settings:
             allowed_origins=tuple(
                 origin.strip().rstrip("/")
                 for origin in _secret(
-                    secrets, "ALLOWED_ORIGINS", "https://utopia-game.com"
+                    secrets,
+                    "ALLOWED_ORIGINS",
+                    "https://utopia-game.com,https://www.utopia-game.com",
                 ).split(",")
                 if origin.strip()
             ),
