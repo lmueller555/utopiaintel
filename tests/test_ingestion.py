@@ -10,7 +10,7 @@ def make_settings(tmp_path):
         database_url=f"sqlite:///{tmp_path / 'test.db'}",
         ingestion_api_key="test-secret",
         max_payload_bytes=1024,
-        allowed_origins=("https://utopia-game.com",),
+        allowed_origins=("https://utopia-game.com", "https://www.utopia-game.com"),
     )
 
 
@@ -18,7 +18,14 @@ def test_health_endpoint(tmp_path):
     client = create_app(make_settings(tmp_path)).test_client()
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.get_json() == {"status": "ok"}
+    assert response.get_json() == {"status": "ok", "database": "connected"}
+
+
+def test_index_describes_api_routes(tmp_path):
+    client = create_app(make_settings(tmp_path)).test_client()
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.get_json()["submissions"] == "/api/v1/intel-submissions"
 
 
 def test_json_submission_is_authenticated_and_persisted(tmp_path):
@@ -94,3 +101,28 @@ def test_capture_client_preflight_is_supported(tmp_path):
     assert response.status_code == 204
     assert response.headers["Access-Control-Allow-Origin"] == "https://utopia-game.com"
     assert "Authorization" in response.headers["Access-Control-Allow-Headers"]
+
+
+def test_www_capture_client_preflight_is_supported(tmp_path):
+    client = create_app(make_settings(tmp_path)).test_client()
+    response = client.options(
+        "/api/v1/intel-submissions",
+        headers={"Origin": "https://www.utopia-game.com"},
+    )
+    assert response.status_code == 204
+    assert response.headers["Access-Control-Allow-Origin"] == "https://www.utopia-game.com"
+
+
+def test_oversized_request_returns_json_error(tmp_path):
+    client = create_app(make_settings(tmp_path)).test_client()
+    response = client.post(
+        "/api/v1/intel-submissions",
+        headers={
+            "Authorization": "Bearer test-secret",
+            "Content-Type": "application/json",
+        },
+        data=b'{' + b'"padding":"' + (b"x" * (70 * 1024)) + b'"}',
+    )
+    assert response.status_code == 413
+    assert response.is_json
+    assert response.get_json()["success"] is False
