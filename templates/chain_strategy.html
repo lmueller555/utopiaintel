@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Chain strategy · Utopia Intel{% endblock %}
+{% block content %}
+  <a class="back-link" href="{{ url_for('dashboard') }}">← Back to dashboard</a>
+  <section class="hero chain-hero">
+    <div>
+      <p class="eyebrow">Attack planner</p>
+      <h1>Chain strategy</h1>
+      <p>Maximize unique hits using offense, defense, and the 90–110% networth range.</p>
+    </div>
+  </section>
+
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+  <form method="post" class="panel chain-form">
+    <div class="chain-inputs">
+      <label>Our provinces <small>Province, offense, networth</small>
+        <textarea name="attackers" rows="8" placeholder="Oakheart, 125000, 300000" required>{{ attackers_text }}</textarea>
+      </label>
+      <label>Enemy provinces <small>Province, defense, networth</small>
+        <textarea name="targets" rows="8" placeholder="Blackspire, 110000, 290000" required>{{ targets_text }}</textarea>
+      </label>
+    </div>
+    <button class="button button-primary" type="submit">Build optimal chain</button>
+  </form>
+
+  {% if strategy is not none %}
+    <section class="panel table-panel chain-results">
+      <div class="panel-heading">
+        <div><p class="eyebrow">Optimal assignment</p><h2>{{ hit_count }} possible hit{{ '' if hit_count == 1 else 's' }}</h2></div>
+        <span class="record-count">{{ unassigned_count }} without a valid target</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Our province</th><th>Their chain target</th></tr></thead>
+          <tbody>
+            {% for attacker, target in strategy %}
+              <tr>
+                <td><strong>{{ attacker.name }}</strong><small>{{ '{:,}'.format(attacker.strength) }} offense · {{ '{:,}'.format(attacker.networth) }} nw</small></td>
+                <td>{% if target %}<strong>{{ target.name }}</strong><small>{{ '{:,}'.format(target.strength) }} defense · {{ '{:,}'.format(target.networth) }} nw</small>{% else %}<span class="no-target">No valid target</span>{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}
