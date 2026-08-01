@@ -69,8 +69,10 @@ curl --fail-with-body \
 ```
 
 Legacy form clients may provide the token in the `key` field. A successful
-request returns HTTP 201 and a stable submission ID. `GET /health` checks both
-the web process and its database connection; `GET /api/v1` lists API routes.
+request returns HTTP 201 and a stable submission ID. `GET /health` checks the
+web process, database connection, and application table, and reports the active
+database backend and number of stored submissions. `GET /api/v1` lists API
+routes.
 
 ## Deploy to Heroku
 
@@ -94,8 +96,8 @@ web: gunicorn 'api.app:create_app()'
 
 4. Deploy the application. The database schema is initialized when the web
    process starts.
-5. Verify `https://YOUR-HEROKU-APP.herokuapp.com/health` returns
-   `{"database":"connected","status":"ok"}`.
+5. Verify `https://YOUR-HEROKU-APP.herokuapp.com/health` reports
+   `"database":"connected"` and `"database_backend":"postgresql"`.
 6. Open the public application root and repeat the test submission against the
    HTTPS endpoint.
 7. Install `capture/utopia_intel.user.js`. Enter

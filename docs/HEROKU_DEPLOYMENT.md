@@ -56,7 +56,20 @@ curl --fail https://APP_HOST/health
 Expected response:
 
 ```json
-{"database":"connected","status":"ok"}
+{"database":"connected","database_backend":"postgresql","status":"ok","submissions":0}
+```
+
+The `submissions` count increases as captures arrive. If `database_backend` is
+`sqlite`, the application is not using the attached Heroku Postgres resource;
+confirm that the add-on supplies `DATABASE_URL` to this app and restart it.
+
+With an authenticated Heroku CLI, you can also verify the attachment without
+printing its credentials:
+
+```bash
+heroku pg:info --app YOUR-HEROKU-APP
+heroku config:get DATABASE_URL --app YOUR-HEROKU-APP >/dev/null \
+  && echo "DATABASE_URL is configured"
 ```
 
 Open `https://APP_HOST/` and confirm the public dashboard loads. Then submit a

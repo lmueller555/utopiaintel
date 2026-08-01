@@ -19,7 +19,29 @@ def test_health_endpoint(tmp_path):
     client = create_app(make_settings(tmp_path)).test_client()
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.get_json() == {"status": "ok", "database": "connected"}
+    assert response.get_json() == {
+        "status": "ok",
+        "database": "connected",
+        "database_backend": "sqlite",
+        "submissions": 0,
+    }
+
+
+def test_health_endpoint_counts_stored_submissions(tmp_path):
+    settings = make_settings(tmp_path)
+    client = create_app(settings).test_client()
+    response = client.post(
+        "/api/v1/intel-submissions",
+        headers={"Authorization": "Bearer test-secret"},
+        json={
+            "url": "https://utopia-game.com/shared/",
+            "prov": "Friendly Province",
+            "data_simple": "Survey for The Province of Target (1:2)",
+        },
+    )
+    assert response.status_code == 201
+
+    assert client.get("/health").get_json()["submissions"] == 1
 
 
 def test_root_redirects_to_dashboard(tmp_path):
