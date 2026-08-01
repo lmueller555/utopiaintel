@@ -87,7 +87,7 @@ curl --fail-with-body \
   }'
 ```
 
-A successful response has status 201 and contains `submission_id`. Reload the
+A successful response has status 200 and contains `submission_id`. Reload the
 dashboard and inspect the new record.
 
 ## 5. Configure Utopia capture

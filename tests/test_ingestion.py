@@ -39,7 +39,7 @@ def test_health_endpoint_counts_stored_submissions(tmp_path):
             "data_simple": "Survey for The Province of Target (1:2)",
         },
     )
-    assert response.status_code == 201
+    assert response.status_code == 200
 
     assert client.get("/health").get_json()["submissions"] == 1
 
@@ -70,35 +70,10 @@ def test_login_route_is_removed(tmp_path):
     assert client.get("/login").status_code == 404
 
 
-def test_manual_submission_uses_shared_dashboard_database(tmp_path):
-    settings = make_settings(tmp_path)
-    client = create_app(settings).test_client()
-    client.get("/dashboard")
-    with client.session_transaction() as browser_session:
-        csrf_token = browser_session["csrf_token"]
-
-    response = client.post(
-        "/submissions",
-        data={
-            "csrf_token": csrf_token,
-            "url": "https://utopia-game.com/",
-            "prov": "Dashboard Province",
-            "data_simple": "Survey for The Province of Web Target (3:4)",
-        },
-    )
-    assert response.status_code == 302
-    dashboard = client.get("/dashboard")
-    assert b"Web Target" in dashboard.data
-    assert b"Dashboard Province" in dashboard.data
-
-    engine = make_engine(settings.database_url)
-    factory = make_session_factory(engine)
-    with session_scope(factory) as db_session:
-        submission = db_session.scalar(select(IntelSubmission))
-        assert submission is not None
-        detail = client.get(f"/submissions/{submission.id}")
-    assert detail.status_code == 200
-    assert b"Survey for The Province of Web Target" in detail.data
+def test_manual_submission_route_is_removed(tmp_path):
+    client = create_app(make_settings(tmp_path)).test_client()
+    assert client.post("/submissions").status_code == 404
+    assert b"Manual entry" not in client.get("/dashboard").data
 
 
 def test_json_submission_is_authenticated_and_persisted(tmp_path):
@@ -115,7 +90,7 @@ def test_json_submission_is_authenticated_and_persisted(tmp_path):
         },
     )
 
-    assert response.status_code == 201
+    assert response.status_code == 200
     assert response.get_json()["intel_type"] == "spy on throne"
     assert response.get_json()["target_province"] == "Target Province"
     assert response.get_json()["target_kingdom"] == "4:5"
@@ -140,7 +115,7 @@ def test_legacy_form_key_is_supported(tmp_path):
             "data_simple": "Survey for The Province of Target (1:2)",
         },
     )
-    assert response.status_code == 201
+    assert response.status_code == 200
     assert response.get_json()["intel_type"] == "survey"
 
 
@@ -172,7 +147,7 @@ def test_capture_client_preflight_is_supported(tmp_path):
         headers={"Origin": "https://utopia-game.com"},
     )
     assert response.status_code == 204
-    assert response.headers["Access-Control-Allow-Origin"] == "https://utopia-game.com"
+    assert response.headers["Access-Control-Allow-Origin"] == "*"
     assert "Authorization" in response.headers["Access-Control-Allow-Headers"]
 
 
@@ -183,7 +158,24 @@ def test_www_capture_client_preflight_is_supported(tmp_path):
         headers={"Origin": "https://www.utopia-game.com"},
     )
     assert response.status_code == 204
-    assert response.headers["Access-Control-Allow-Origin"] == "https://www.utopia-game.com"
+    assert response.headers["Access-Control-Allow-Origin"] == "*"
+
+
+def test_native_transfer_response_allows_unknown_utopia_origin(tmp_path):
+    client = create_app(make_settings(tmp_path)).test_client()
+    response = client.post(
+        "/api/v1/intel-submissions",
+        headers={"Origin": "https://game.example"},
+        data={
+            "key": "test-secret",
+            "url": "https://utopia-game.com/",
+            "prov": "Friendly Province",
+            "data_simple": "Spy on Throne\nThe Province of Target (1:2)",
+        },
+    )
+    assert response.status_code == 200
+    assert response.get_json()["success"] is True
+    assert response.headers["Access-Control-Allow-Origin"] == "*"
 
 
 def test_oversized_request_returns_json_error(tmp_path):
