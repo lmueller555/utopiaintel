@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Sign in · Utopia Intel{% endblock %}
+{% block content %}
+  <section class="login-shell">
+    <div class="login-copy">
+      <p class="eyebrow">Private kingdom workspace</p>
+      <h1>Turn fresh intel into a shared advantage.</h1>
+      <p>Capture reports from Utopia, preserve the source, and give your kingdom one secure place to review what arrived.</p>
+      <div class="feature-list">
+        <span>Authenticated dashboard</span>
+        <span>Live submission feed</span>
+        <span>Shared PostgreSQL storage</span>
+      </div>
+    </div>
+    <form class="panel login-panel" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <p class="eyebrow">Command access</p>
+      <h2>Sign in</h2>
+      <p class="muted">Use the dashboard password configured for this deployment.</p>
+      <label for="password">Dashboard password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+      <button class="button button-primary button-block" type="submit">Open dashboard</button>
+    </form>
+  </section>
+{% endblock %}

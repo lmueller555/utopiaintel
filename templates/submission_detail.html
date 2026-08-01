@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ submission.target_province }} · Utopia Intel{% endblock %}
+{% block content %}
+  <a class="back-link" href="{{ url_for('dashboard') }}">← Back to dashboard</a>
+  <section class="detail-heading">
+    <div><p class="eyebrow">Captured report</p><h1>{{ submission.target_province }}</h1><p>{{ submission.intel_type|title }} · {{ submission.target_kingdom }}</p></div>
+    <span class="status"><i></i>{{ submission.parser_status.replace('_', ' ') }}</span>
+  </section>
+  <section class="detail-grid">
+    <article class="panel metadata-panel">
+      <h2>Submission details</h2>
+      <dl>
+        <dt>Received</dt><dd>{{ submission.received_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC</dd>
+        <dt>Submitted by</dt><dd>{{ submission.submitter_province }}</dd>
+        <dt>Source</dt><dd><a class="text-link" href="{{ submission.source_url }}" rel="noreferrer">{{ submission.source_url }}</a></dd>
+        <dt>Submission ID</dt><dd><code>{{ submission.id }}</code></dd>
+      </dl>
+    </article>
+    <article class="panel payload-panel">
+      <div class="panel-heading"><div><p class="eyebrow">Untrusted source</p><h2>Stored plain text</h2></div></div>
+      <pre>{{ submission.plain_text or '(No plain text supplied)' }}</pre>
+    </article>
+  </section>
+{% endblock %}

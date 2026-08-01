@@ -1,38 +1,27 @@
 # Utopia Intel
 
-A small, deployable foundation for collecting Utopia intel and reviewing it in a
-Streamlit dashboard. The repository contains:
+Utopia Intel is a unified Flask application for collecting and reviewing
+explicitly captured Utopia game intel. One Gunicorn process serves the protected
+HTML dashboard, manual capture form, ingestion API, and health check; SQLAlchemy
+stores every accepted report in SQLite for local development or Heroku Postgres
+in production.
 
-- a **Streamlit app** for manually submitting and visualizing captured intel;
-- a **Flask ingestion API** for browser extensions or userscripts;
-- a shared **SQLAlchemy persistence layer** that supports SQLite locally and
-  PostgreSQL in a deployed environment; and
-- tests for authentication, validation, persistence, and parsing.
-
-The application stores every accepted submission before displaying parsed
-metadata. It is intentionally limited to ingestion and visibility; wave planning
-and combat calculations can be added on top of the same database later.
-
-`capture/utopia_intel.user.js` is an optional, user-triggered userscript that adds
-a **Send intel** button to game pages. Install it in a userscript manager, click
-the button, and enter the deployed Flask endpoint, ingestion key, and your
-province. Shift-click the button to change those settings. Review the game's
-current rules before distributing it to kingdom members.
+`capture/utopia_intel.user.js` is an optional, user-triggered userscript. It adds
+a **Send intel** button to Utopia pages and sends the visible page to the deployed
+API only when the member clicks it. Review the game's current rules before
+installing or distributing the capture client.
 
 ## Architecture
 
 ```text
-Browser extension/userscript ──POST──> Flask API ──> Database
-                                                    ▲
-                                                    │
-Kingdom member ───────────────> Streamlit dashboard ┘
+Utopia page + userscript ──POST /api/v1/intel-submissions──┐
+                                                           ▼
+Kingdom member ──HTTPS──> Flask dashboard/API ──> PostgreSQL
 ```
 
-Streamlit Community Cloud runs the dashboard. It does not expose arbitrary Flask
-routes, so automated game submissions require deploying `api.app:create_app()`
-as a second web service. Both processes use the same `DATABASE_URL` and Python
-domain code. The dashboard also includes a manual capture form so a Streamlit-only
-deployment can be evaluated immediately.
+The dashboard and API share one process, hostname, release, configuration, and
+database. Dashboard pages require the configured password; capture clients use a
+separate ingestion key.
 
 ## Local setup
 
@@ -45,114 +34,105 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Export the settings in `.env` (or load them with your preferred environment
-manager), then start the dashboard:
+Replace the example secrets, export the file, and run Flask:
 
 ```bash
-streamlit run streamlit_app.py
-```
-
-In another terminal, start the ingestion endpoint:
-
-```bash
+set -a
+source .env
+set +a
 flask --app api.app:create_app run --port 8000
 ```
 
-The local default database is `utopiaintel.db`. For a shared or production
-deployment, set `DATABASE_URL` to a PostgreSQL connection string.
+Open <http://127.0.0.1:8000>, sign in with `DASHBOARD_PASSWORD`, and use the
+manual form or API. Local development defaults to `utopiaintel.db`.
+
+Generate independent production secrets with:
+
+```bash
+python -c 'import secrets; print(secrets.token_urlsafe(48))'
+```
 
 ## Submit game data
 
-The API accepts both JSON and the legacy form fields documented by the original
-`example.php`. Authenticate with a bearer token:
+Capture clients authenticate with the ingestion key, not the dashboard password:
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/intel-submissions \
-  -H "Authorization: Bearer change-me" \
+curl --fail-with-body \
+  -X POST http://127.0.0.1:8000/api/v1/intel-submissions \
+  -H "Authorization: Bearer YOUR_INGESTION_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "data_html": "<div>Province of Example</div>",
-    "data_simple": "The Province of Example (1:2)\nNetworth: 123,456",
-    "url": "https://utopia-game.com/shared/",
-    "prov": "Our Province",
-    "intel_type": "survey",
-    "target_province": "Example",
-    "target_kingdom": "1:2"
+    "data_simple": "Survey for The Province of Example (1:2)",
+    "url": "https://utopia-game.com/",
+    "prov": "Our Province"
   }'
 ```
 
-Legacy form clients may send the token as the `key` form field. A successful
-request returns HTTP 201 and a stable submission ID. The API also provides
-`GET /health` for deployment health checks.
+Legacy form clients may provide the token in the `key` field. A successful
+request returns HTTP 201 and a stable submission ID. `GET /health` checks both
+the web process and its database connection; `GET /api/v1` lists API routes.
 
-## Deploy the Streamlit dashboard
+## Deploy to Heroku
 
-1. Push this repository to GitHub.
-2. In Streamlit Community Cloud, create an app from the repository.
-3. Select `streamlit_app.py` as the entry point.
-4. Add secrets based on `.streamlit/secrets.toml.example`.
-5. Deploy the app.
-
-For a disposable demonstration, omit `DATABASE_URL` and the app will use SQLite.
-Hosted filesystems may be ephemeral, so configure a managed PostgreSQL database
-before collecting real kingdom intel.
-
-Example Streamlit secrets:
-
-```toml
-DATABASE_URL = "postgresql+psycopg://user:password@host:5432/database"
-INGESTION_API_KEY = "a-long-random-secret"
-```
-
-## Deploy the ingestion API
-
-Deploy the same repository to any Python web-service host that supports the
-included `Procfile` or `Dockerfile`. Use this start command if it is requested:
-
-```bash
-gunicorn 'api.app:create_app()'
-```
-
-Configure the exact same `DATABASE_URL` as the Streamlit app and set the same
-`INGESTION_API_KEY`. Point the game capture tool at:
+The repository includes the Heroku-compatible `Procfile`:
 
 ```text
-https://your-api-host.example/api/v1/intel-submissions
+web: gunicorn 'api.app:create_app()'
 ```
 
-After deployment, verify the service and its database connection:
+1. Create a Heroku application from this repository and branch.
+2. In the application's **Resources** tab, add a Heroku Postgres resource using
+   an appropriate currently available plan. Heroku supplies `DATABASE_URL`.
+3. In **Settings → Config Vars**, add:
 
-```bash
-curl --fail https://your-api-host.example/health
-```
+   ```text
+   INGESTION_API_KEY=<independent random secret>
+   SECRET_KEY=<independent random secret>
+   DASHBOARD_PASSWORD=<strong dashboard password>
+   ALLOWED_ORIGINS=https://utopia-game.com,https://www.utopia-game.com
+   MAX_PAYLOAD_BYTES=1048576
+   ```
 
-The response should be `{"database":"connected","status":"ok"}`. Opening the
-API's root URL also returns a short index of the available routes. See
-[`docs/API_DEPLOYMENT.md`](docs/API_DEPLOYMENT.md) for the complete deployment,
-capture-client configuration, and end-to-end verification checklist.
+4. Deploy the application. The database schema is initialized when the web
+   process starts.
+5. Verify `https://YOUR-HEROKU-APP.herokuapp.com/health` returns
+   `{"database":"connected","status":"ok"}`.
+6. Sign in at the application root and repeat the test submission against the
+   public HTTPS endpoint.
+7. Install `capture/utopia_intel.user.js`. Enter
+   `https://YOUR-HEROKU-APP.herokuapp.com/api/v1/intel-submissions`, the
+   ingestion key, and your province when prompted. Shift-click **Send intel** to
+   replace saved settings.
 
-Do not put database credentials in a browser extension. The capture client only
-receives a revocable ingestion key.
+See [`docs/HEROKU_DEPLOYMENT.md`](docs/HEROKU_DEPLOYMENT.md) for the complete
+deployment and verification checklist.
 
 ## Configuration
 
-| Variable | Required | Purpose |
+| Variable | Required in production | Purpose |
 |---|---:|---|
-| `DATABASE_URL` | Production | Shared PostgreSQL connection; defaults to local SQLite |
-| `INGESTION_API_KEY` | Yes | Secret accepted by the API and manual capture form |
+| `DATABASE_URL` | Yes | Heroku Postgres connection; local default is SQLite |
+| `INGESTION_API_KEY` | Yes | Bearer token accepted by capture clients |
+| `SECRET_KEY` | Yes | Signs protected dashboard sessions; must differ from the ingestion key |
+| `DASHBOARD_PASSWORD` | Yes | Shared password for dashboard access |
 | `MAX_PAYLOAD_BYTES` | No | Maximum combined HTML/text size; defaults to 1 MiB |
-| `ALLOWED_ORIGINS` | No | Comma-separated browser origins allowed to submit intel; both Utopia hostnames are allowed by default |
+| `ALLOWED_ORIGINS` | No | Browser origins allowed to call the ingestion API |
 
 ## Tests
 
 ```bash
+pip install -r requirements-dev.txt
 pytest
 ```
 
 ## Security notes
 
-- Use a long random ingestion key and rotate it if it is exposed.
-- Restrict access to the Streamlit dashboard before storing sensitive intel.
-- The service treats captured HTML as untrusted and displays it only as text.
-- Review the game's current rules before installing or distributing an automated
-  capture client.
+- Use independent random values for `INGESTION_API_KEY` and `SECRET_KEY`, plus a
+  strong dashboard password.
+- Rotate the ingestion key promptly if it is exposed.
+- Keep PostgreSQL credentials in Heroku config; never put `DATABASE_URL` in a
+  browser client.
+- Captured HTML is untrusted. The dashboard renders only escaped plain text.
+- The shared dashboard password is an initial single-kingdom access mechanism;
+  add individual accounts and revocable per-member tokens before broader use.
+- Review the game's current rules before distributing the capture client.
