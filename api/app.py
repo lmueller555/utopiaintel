@@ -17,7 +17,7 @@ from flask import (
     session,
     url_for,
 )
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -163,11 +163,23 @@ def create_app(settings: Settings | None = None) -> Flask:
     @app.get("/health")
     def health():
         try:
-            with engine.connect() as connection:
-                connection.execute(text("SELECT 1"))
+            with session_scope(session_factory) as db_session:
+                # Query the application table, rather than only issuing SELECT 1,
+                # so this check also verifies that the schema is ready for captures.
+                submissions = (
+                    db_session.scalar(select(func.count()).select_from(IntelSubmission))
+                    or 0
+                )
         except SQLAlchemyError:
             return jsonify({"status": "unavailable", "database": "disconnected"}), 503
-        return jsonify({"status": "ok", "database": "connected"})
+        return jsonify(
+            {
+                "status": "ok",
+                "database": "connected",
+                "database_backend": engine.dialect.name,
+                "submissions": submissions,
+            }
+        )
 
     @app.errorhandler(413)
     def payload_too_large(_error):
