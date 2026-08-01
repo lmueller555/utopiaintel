@@ -6,23 +6,17 @@ HTML dashboard, ingestion API, and health check; SQLAlchemy
 stores every accepted report in SQLite for local development or Heroku Postgres
 in production.
 
-`capture/utopia_intel.user.js` is an optional intel-mirroring userscript. After a
-member configures it, the script observes Utopia's normal official intel transfer
-and sends a sanitized copy of each transferred report to the deployed API. It
-never copies the official intel token, password cookie, resources, attack
-metadata, session cookies, or CSRF token. A **Send intel** button remains
-available for explicit captures. Review the game's current rules before
+`capture/utopia_intel.user.js` is an optional, user-triggered userscript. It adds
+a **Send intel** button to Utopia pages and sends the visible page to the deployed
+API only when the member clicks it. Review the game's current rules before
 installing or distributing the capture client.
 
 ## Architecture
 
 ```text
-Utopia official intel POST ──userscript mirrors report──┐
-Utopia page + Send intel button ────────────────────────┤
-                                                       ▼
-                                            Flask dashboard/API ──> PostgreSQL
-                                                       ▲
-Kingdom member ────────────────────────HTTPS────────────┘
+Utopia page + userscript ──POST /api/v1/intel-submissions──┐
+                                                           ▼
+Kingdom member ──HTTPS──> Flask dashboard/API ──> PostgreSQL
 ```
 
 The dashboard and API share one process, hostname, release, configuration, and
@@ -106,11 +100,10 @@ web: gunicorn 'api.app:create_app()'
    `"database":"connected"` and `"database_backend":"postgresql"`.
 6. Open the public application root and repeat the test submission against the
    HTTPS endpoint.
-7. Install `capture/utopia_intel.user.js`. Click **Send intel** once and enter
+7. Install `capture/utopia_intel.user.js`. Enter
    `https://YOUR-HEROKU-APP.herokuapp.com/api/v1/intel-submissions`, the
-   ingestion key, and your province when prompted. Subsequent official intel
-   transfers are mirrored automatically. Shift-click **Send intel** to replace
-   saved settings.
+   ingestion key, and your province when prompted. Shift-click **Send intel** to
+   replace saved settings.
 
 See [`docs/HEROKU_DEPLOYMENT.md`](docs/HEROKU_DEPLOYMENT.md) for the complete
 deployment and verification checklist.
