@@ -3,18 +3,15 @@
 from __future__ import annotations
 
 import hmac
-import secrets
 
 from flask import (
     Flask,
     abort,
-    flash,
     jsonify,
     make_response,
     redirect,
     render_template,
     request,
-    session,
     url_for,
 )
 from sqlalchemy import func, select
@@ -39,20 +36,6 @@ def _provided_key(data) -> str:
     return str(data.get("key") or "")
 
 
-def _csrf_token() -> str:
-    token = session.get("csrf_token")
-    if token is None:
-        token = secrets.token_urlsafe(32)
-        session["csrf_token"] = token
-    return token
-
-
-def _valid_csrf() -> bool:
-    provided = str(request.form.get("csrf_token") or "")
-    expected = str(session.get("csrf_token") or "")
-    return bool(expected) and hmac.compare_digest(provided, expected)
-
-
 def create_app(settings: Settings | None = None) -> Flask:
     settings = settings or Settings.load()
     app = Flask(__name__, template_folder="../templates", static_folder="../static")
@@ -69,7 +52,6 @@ def create_app(settings: Settings | None = None) -> Flask:
     session_factory = make_session_factory(engine)
     app.extensions["utopia_settings"] = settings
     app.extensions["utopia_session_factory"] = session_factory
-    app.jinja_env.globals["csrf_token"] = _csrf_token
 
     @app.get("/")
     def index():
@@ -112,19 +94,6 @@ def create_app(settings: Settings | None = None) -> Flask:
             sqlite_database=settings.database_url.startswith("sqlite"),
         )
 
-    @app.post("/submissions")
-    def manual_submission():
-        if not _valid_csrf():
-            abort(400, "Invalid CSRF token.")
-        try:
-            payload = SubmissionPayload.from_mapping(request.form)
-            with session_scope(session_factory) as db_session:
-                submission = ingest(db_session, payload, settings.max_payload_bytes)
-            flash(f"Stored submission {submission.id[:8]}…", "success")
-        except IngestionError as exc:
-            flash(str(exc), "error")
-        return redirect(url_for("dashboard"))
-
     @app.get("/submissions/<submission_id>")
     def submission_detail(submission_id: str):
         with session_scope(session_factory) as db_session:
@@ -153,10 +122,16 @@ def create_app(settings: Settings | None = None) -> Flask:
                 "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
             )
         origin = request.headers.get("Origin", "").rstrip("/")
-        if origin and ("*" in settings.allowed_origins or origin in settings.allowed_origins):
-            response.headers["Access-Control-Allow-Origin"] = origin
+        if request.path.startswith("/api/v1/intel-submissions"):
+            # Utopia's native intel-transfer client requires a CORS header on
+            # every response. The endpoint is protected by its transfer key and
+            # does not use cookies, so a wildcard is safe and maximally
+            # compatible with the game's current and future hostnames.
+            response.headers["Access-Control-Allow-Origin"] = "*"
             response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
             response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        elif origin and ("*" in settings.allowed_origins or origin in settings.allowed_origins):
+            response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Vary"] = "Origin"
         return response
 
@@ -186,8 +161,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         message = "The request exceeds the configured payload size limit."
         if request.path.startswith("/api/"):
             return jsonify({"success": False, "error": message}), 413
-        flash(message, "error")
-        return redirect(url_for("dashboard")), 303
+        return message, 413
 
     @app.route("/api/v1/intel-submissions", methods=["POST", "OPTIONS"])
     def create_submission():
@@ -196,6 +170,11 @@ def create_app(settings: Settings | None = None) -> Flask:
         data = request.get_json(silent=True) if request.is_json else request.form
         data = data or {}
         if not hmac.compare_digest(_provided_key(data), settings.ingestion_api_key):
+            app.logger.warning(
+                "Rejected Utopia intel submission (origin=%s, content_type=%s)",
+                request.headers.get("Origin", "none"),
+                request.content_type or "none",
+            )
             return jsonify({"success": False, "error": "Invalid ingestion key."}), 401
 
         try:
@@ -211,8 +190,22 @@ def create_app(settings: Settings | None = None) -> Flask:
                     "target_kingdom": submission.target_kingdom,
                 }
         except IngestionError as exc:
+            app.logger.warning(
+                "Rejected invalid Utopia intel submission: %s (origin=%s, fields=%s)",
+                exc,
+                request.headers.get("Origin", "none"),
+                sorted(data.keys()),
+            )
             return jsonify({"success": False, "error": str(exc)}), 400
 
-        return jsonify(result), 201
+        app.logger.info(
+            "Stored Utopia intel submission %s from %s",
+            result["submission_id"],
+            payload.submitter_province,
+        )
+        # Utopia's reference receiver responds with a conventional 200. Keep
+        # that behavior for the native transfer client; success is conveyed by
+        # the JSON field rather than a REST-specific status code.
+        return jsonify(result), 200
 
     return app

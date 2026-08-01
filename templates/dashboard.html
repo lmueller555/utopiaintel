@@ -23,29 +23,7 @@
     <article class="metric"><span>Contributors</span><strong>{{ submitters }}</strong><small>Submitting provinces</small></article>
   </section>
 
-  <section class="dashboard-grid">
-    <article class="panel capture-panel">
-      <div class="panel-heading">
-        <div><p class="eyebrow">Manual entry</p><h2>Capture intel</h2></div>
-      </div>
-      <form action="{{ url_for('manual_submission') }}" method="post" class="capture-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="field-row">
-          <div><label for="prov">Your province</label><input id="prov" name="prov" required></div>
-          <div><label for="intel_type">Intel type</label><select id="intel_type" name="intel_type"><option>unknown</option><option>survey</option><option>spy on throne</option><option>spy on military</option><option>other</option></select></div>
-        </div>
-        <label for="url">Source URL</label>
-        <input id="url" name="url" type="url" value="https://utopia-game.com/" required>
-        <div class="field-row">
-          <div><label for="target_province">Target province <small>optional</small></label><input id="target_province" name="target_province"></div>
-          <div><label for="target_kingdom">Target kingdom <small>optional</small></label><input id="target_kingdom" name="target_kingdom" placeholder="1:2"></div>
-        </div>
-        <label for="data_simple">Captured intel</label>
-        <textarea id="data_simple" name="data_simple" rows="8" required placeholder="Paste the visible intel report…"></textarea>
-        <button class="button button-primary button-block" type="submit">Store intel</button>
-      </form>
-    </article>
-
+  <section>
     <article class="panel distribution-panel">
       <div class="panel-heading"><div><p class="eyebrow">Distribution</p><h2>Intel by type</h2></div></div>
       {% if counts %}
@@ -58,7 +36,7 @@
           {% endfor %}
         </div>
       {% else %}
-        <div class="empty-state"><span>◎</span><h3>No intel yet</h3><p>Use the capture form or browser userscript to verify the connection.</p></div>
+        <div class="empty-state"><span>◎</span><h3>No intel yet</h3><p>Configure Utopia's intel transfer and complete an intel operation.</p></div>
       {% endif %}
     </article>
   </section>

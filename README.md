@@ -2,7 +2,7 @@
 
 Utopia Intel is a unified Flask application for collecting and reviewing
 explicitly captured Utopia game intel. One Gunicorn process serves the public
-HTML dashboard, manual capture form, ingestion API, and health check; SQLAlchemy
+HTML dashboard, ingestion API, and health check; SQLAlchemy
 stores every accepted report in SQLite for local development or Heroku Postgres
 in production.
 
@@ -43,7 +43,7 @@ set +a
 flask --app api.app:create_app run --port 8000
 ```
 
-Open <http://127.0.0.1:8000> and use the manual form or API. Local development
+Open <http://127.0.0.1:8000> and use the API. Local development
 defaults to `utopiaintel.db`.
 
 Generate independent production secrets with:
@@ -69,7 +69,7 @@ curl --fail-with-body \
 ```
 
 Legacy form clients may provide the token in the `key` field. A successful
-request returns HTTP 201 and a stable submission ID. `GET /health` checks the
+request returns HTTP 200 and a stable submission ID. `GET /health` checks the
 web process, database connection, and application table, and reports the active
 database backend and number of stored submissions. `GET /api/v1` lists API
 routes.
