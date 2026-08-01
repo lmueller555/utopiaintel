@@ -37,14 +37,13 @@ In **Settings → Config Vars**, configure:
 ```text
 INGESTION_API_KEY=FIRST_RANDOM_VALUE
 SECRET_KEY=SECOND_RANDOM_VALUE
-DASHBOARD_PASSWORD=A_DIFFERENT_STRONG_PASSWORD
 ALLOWED_ORIGINS=https://utopia-game.com,https://www.utopia-game.com
 MAX_PAYLOAD_BYTES=1048576
 ```
 
-`INGESTION_API_KEY` authenticates browser captures. `SECRET_KEY` signs dashboard
-sessions. `DASHBOARD_PASSWORD` grants human access to stored intel. Do not reuse
-one value for all three purposes.
+`INGESTION_API_KEY` authenticates browser captures. `SECRET_KEY` signs the
+CSRF-protection session used by the public manual submission form. Do not reuse
+one value for both purposes.
 
 ## 4. Deploy and verify
 
@@ -60,8 +59,8 @@ Expected response:
 {"database":"connected","status":"ok"}
 ```
 
-Open `https://APP_HOST/`, sign in with `DASHBOARD_PASSWORD`, and confirm the empty
-dashboard loads. Then submit a controlled capture:
+Open `https://APP_HOST/` and confirm the public dashboard loads. Then submit a
+controlled capture:
 
 ```bash
 curl --fail-with-body \
@@ -99,8 +98,6 @@ Shift-click **Send intel** to replace the stored URL, key, or province.
 - **413 response:** increase `MAX_PAYLOAD_BYTES` only for legitimate captures.
 - **503 from `/health`:** inspect the PostgreSQL resource, credentials, and
   application logs.
-- **Dashboard returns to login after every request:** verify `SECRET_KEY` is set
-  and stable across restarts.
 - **Database warning appears:** the process did not receive a PostgreSQL
   `DATABASE_URL` and fell back to local SQLite; verify the resource attachment.
 

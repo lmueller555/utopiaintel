@@ -1,7 +1,7 @@
 # Utopia Intel
 
 Utopia Intel is a unified Flask application for collecting and reviewing
-explicitly captured Utopia game intel. One Gunicorn process serves the protected
+explicitly captured Utopia game intel. One Gunicorn process serves the public
 HTML dashboard, manual capture form, ingestion API, and health check; SQLAlchemy
 stores every accepted report in SQLite for local development or Heroku Postgres
 in production.
@@ -20,8 +20,8 @@ Kingdom member ──HTTPS──> Flask dashboard/API ──> PostgreSQL
 ```
 
 The dashboard and API share one process, hostname, release, configuration, and
-database. Dashboard pages require the configured password; capture clients use a
-separate ingestion key.
+database. Dashboard pages are publicly accessible; capture clients use an
+ingestion key to prevent unauthorized submissions.
 
 ## Local setup
 
@@ -43,8 +43,8 @@ set +a
 flask --app api.app:create_app run --port 8000
 ```
 
-Open <http://127.0.0.1:8000>, sign in with `DASHBOARD_PASSWORD`, and use the
-manual form or API. Local development defaults to `utopiaintel.db`.
+Open <http://127.0.0.1:8000> and use the manual form or API. Local development
+defaults to `utopiaintel.db`.
 
 Generate independent production secrets with:
 
@@ -54,7 +54,7 @@ python -c 'import secrets; print(secrets.token_urlsafe(48))'
 
 ## Submit game data
 
-Capture clients authenticate with the ingestion key, not the dashboard password:
+Capture clients authenticate with the ingestion key:
 
 ```bash
 curl --fail-with-body \
@@ -88,7 +88,6 @@ web: gunicorn 'api.app:create_app()'
    ```text
    INGESTION_API_KEY=<independent random secret>
    SECRET_KEY=<independent random secret>
-   DASHBOARD_PASSWORD=<strong dashboard password>
    ALLOWED_ORIGINS=https://utopia-game.com,https://www.utopia-game.com
    MAX_PAYLOAD_BYTES=1048576
    ```
@@ -97,8 +96,8 @@ web: gunicorn 'api.app:create_app()'
    process starts.
 5. Verify `https://YOUR-HEROKU-APP.herokuapp.com/health` returns
    `{"database":"connected","status":"ok"}`.
-6. Sign in at the application root and repeat the test submission against the
-   public HTTPS endpoint.
+6. Open the public application root and repeat the test submission against the
+   HTTPS endpoint.
 7. Install `capture/utopia_intel.user.js`. Enter
    `https://YOUR-HEROKU-APP.herokuapp.com/api/v1/intel-submissions`, the
    ingestion key, and your province when prompted. Shift-click **Send intel** to
@@ -113,8 +112,7 @@ deployment and verification checklist.
 |---|---:|---|
 | `DATABASE_URL` | Yes | Heroku Postgres connection; local default is SQLite |
 | `INGESTION_API_KEY` | Yes | Bearer token accepted by capture clients |
-| `SECRET_KEY` | Yes | Signs protected dashboard sessions; must differ from the ingestion key |
-| `DASHBOARD_PASSWORD` | Yes | Shared password for dashboard access |
+| `SECRET_KEY` | Yes | Signs CSRF-protection sessions for the manual submission form |
 | `MAX_PAYLOAD_BYTES` | No | Maximum combined HTML/text size; defaults to 1 MiB |
 | `ALLOWED_ORIGINS` | No | Browser origins allowed to call the ingestion API |
 
@@ -127,12 +125,11 @@ pytest
 
 ## Security notes
 
-- Use independent random values for `INGESTION_API_KEY` and `SECRET_KEY`, plus a
-  strong dashboard password.
+- Use independent random values for `INGESTION_API_KEY` and `SECRET_KEY`.
 - Rotate the ingestion key promptly if it is exposed.
 - Keep PostgreSQL credentials in Heroku config; never put `DATABASE_URL` in a
   browser client.
 - Captured HTML is untrusted. The dashboard renders only escaped plain text.
-- The shared dashboard password is an initial single-kingdom access mechanism;
-  add individual accounts and revocable per-member tokens before broader use.
+- Dashboard pages and stored intel are public. Do not submit data that should not
+  be publicly visible.
 - Review the game's current rules before distributing the capture client.

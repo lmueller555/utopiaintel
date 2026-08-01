@@ -19,7 +19,6 @@ class Settings:
     ingestion_api_key: str
     max_payload_bytes: int
     secret_key: str = "development-secret-change-me"
-    dashboard_password: str = "change-me"
     allowed_origins: tuple[str, ...] = (
         "https://utopia-game.com",
         "https://www.utopia-game.com",
@@ -41,7 +40,6 @@ class Settings:
                 _secret(secrets, "MAX_PAYLOAD_BYTES", str(1024 * 1024))
             ),
             secret_key=_secret(secrets, "SECRET_KEY", "development-secret-change-me"),
-            dashboard_password=_secret(secrets, "DASHBOARD_PASSWORD", "change-me"),
             allowed_origins=tuple(
                 origin.strip().rstrip("/")
                 for origin in _secret(

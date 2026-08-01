@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hmac
 import secrets
-from functools import wraps
 
 from flask import (
     Flask,
@@ -54,16 +53,6 @@ def _valid_csrf() -> bool:
     return bool(expected) and hmac.compare_digest(provided, expected)
 
 
-def login_required(view):
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        if not session.get("authenticated"):
-            return redirect(url_for("login", next=request.full_path.rstrip("?")))
-        return view(*args, **kwargs)
-
-    return wrapped
-
-
 def create_app(settings: Settings | None = None) -> Flask:
     settings = settings or Settings.load()
     app = Flask(__name__, template_folder="../templates", static_folder="../static")
@@ -86,32 +75,7 @@ def create_app(settings: Settings | None = None) -> Flask:
     def index():
         return redirect(url_for("dashboard"))
 
-    @app.route("/login", methods=["GET", "POST"])
-    def login():
-        if session.get("authenticated"):
-            return redirect(url_for("dashboard"))
-        if request.method == "POST":
-            if not _valid_csrf():
-                abort(400, "Invalid CSRF token.")
-            password = str(request.form.get("password") or "")
-            if hmac.compare_digest(password, settings.dashboard_password):
-                session.clear()
-                session["authenticated"] = True
-                session["csrf_token"] = secrets.token_urlsafe(32)
-                return redirect(url_for("dashboard"))
-            flash("The dashboard password is incorrect.", "error")
-        return render_template("login.html")
-
-    @app.post("/logout")
-    @login_required
-    def logout():
-        if not _valid_csrf():
-            abort(400, "Invalid CSRF token.")
-        session.clear()
-        return redirect(url_for("login"))
-
     @app.get("/dashboard")
-    @login_required
     def dashboard():
         with session_scope(session_factory) as db_session:
             total = db_session.scalar(select(func.count()).select_from(IntelSubmission)) or 0
@@ -149,7 +113,6 @@ def create_app(settings: Settings | None = None) -> Flask:
         )
 
     @app.post("/submissions")
-    @login_required
     def manual_submission():
         if not _valid_csrf():
             abort(400, "Invalid CSRF token.")
@@ -163,7 +126,6 @@ def create_app(settings: Settings | None = None) -> Flask:
         return redirect(url_for("dashboard"))
 
     @app.get("/submissions/<submission_id>")
-    @login_required
     def submission_detail(submission_id: str):
         with session_scope(session_factory) as db_session:
             submission = db_session.get(IntelSubmission, submission_id)
