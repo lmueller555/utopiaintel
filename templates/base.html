@@ -13,12 +13,6 @@
         <span class="brand-mark">UI</span>
         <span><strong>Utopia Intel</strong><small>Kingdom operations</small></span>
       </a>
-      {% if session.get('authenticated') %}
-        <form action="{{ url_for('logout') }}" method="post">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="button button-ghost" type="submit">Sign out</button>
-        </form>
-      {% endif %}
     </header>
 
     <main class="page-shell">

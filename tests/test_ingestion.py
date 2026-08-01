@@ -11,7 +11,6 @@ def make_settings(tmp_path):
         ingestion_api_key="test-secret",
         max_payload_bytes=1024,
         secret_key="test-session-secret",
-        dashboard_password="dashboard-secret",
         allowed_origins=("https://utopia-game.com", "https://www.utopia-game.com"),
     )
 
@@ -23,7 +22,7 @@ def test_health_endpoint(tmp_path):
     assert response.get_json() == {"status": "ok", "database": "connected"}
 
 
-def test_root_redirects_to_authenticated_dashboard(tmp_path):
+def test_root_redirects_to_dashboard(tmp_path):
     client = create_app(make_settings(tmp_path)).test_client()
     response = client.get("/")
     assert response.status_code == 302
@@ -37,42 +36,29 @@ def test_api_index_describes_api_routes(tmp_path):
     assert response.get_json()["submissions"] == "/api/v1/intel-submissions"
 
 
-def test_dashboard_requires_login(tmp_path):
+def test_dashboard_is_publicly_accessible(tmp_path):
     client = create_app(make_settings(tmp_path)).test_client()
     response = client.get("/dashboard")
-    assert response.status_code == 302
-    assert "/login" in response.headers["Location"]
+    assert response.status_code == 200
+    assert b"Kingdom dashboard" in response.data
 
 
-def test_dashboard_login_and_logout_are_csrf_protected(tmp_path):
+def test_login_route_is_removed(tmp_path):
     client = create_app(make_settings(tmp_path)).test_client()
-    client.get("/login")
-    with client.session_transaction() as browser_session:
-        csrf_token = browser_session["csrf_token"]
-
-    response = client.post(
-        "/login",
-        data={"password": "dashboard-secret", "csrf_token": csrf_token},
-    )
-    assert response.status_code == 302
-    assert response.headers["Location"].endswith("/dashboard")
-    assert b"Kingdom dashboard" in client.get("/dashboard").data
-
-    response = client.post("/logout", data={"csrf_token": "invalid"})
-    assert response.status_code == 400
+    assert client.get("/login").status_code == 404
 
 
 def test_manual_submission_uses_shared_dashboard_database(tmp_path):
     settings = make_settings(tmp_path)
     client = create_app(settings).test_client()
+    client.get("/dashboard")
     with client.session_transaction() as browser_session:
-        browser_session["authenticated"] = True
-        browser_session["csrf_token"] = "csrf-secret"
+        csrf_token = browser_session["csrf_token"]
 
     response = client.post(
         "/submissions",
         data={
-            "csrf_token": "csrf-secret",
+            "csrf_token": csrf_token,
             "url": "https://utopia-game.com/",
             "prov": "Dashboard Province",
             "data_simple": "Survey for The Province of Web Target (3:4)",
