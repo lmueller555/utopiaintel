@@ -97,15 +97,10 @@ dashboard and inspect the new record.
 3. Enter `https://APP_HOST/api/v1/intel-submissions` as the Intel API URL.
 4. Enter `INGESTION_API_KEY`, never `DATABASE_URL` or `SECRET_KEY`.
 5. Enter the submitting province.
-6. Navigate to a province intel report and take intel normally. The userscript
-   observes the official `intel.utopia-game.com` transfer and mirrors only its
-   source URL, submitting province, report HTML, and report text. It does not
-   copy the official token, password cookie, resources, attack metadata, session
-   cookies, or CSRF token.
+6. Navigate to an intel report and click **Send intel** again.
 7. Confirm **Intel stored ✓** and check the dashboard.
 
-The **Send intel** button can still submit the currently visible page explicitly.
-Shift-click it to replace the stored URL, key, or province.
+Shift-click **Send intel** to replace the stored URL, key, or province.
 
 ## Operations and troubleshooting
 
