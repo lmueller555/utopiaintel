@@ -10,6 +10,11 @@
     <span class="live-indicator"><i></i> Database connected</span>
   </section>
 
+  <a class="planner-callout" href="{{ url_for('chain_strategy') }}">
+    <span><strong>Build a chain strategy</strong><small>Match your kingdom's offense to valid enemy defenses.</small></span>
+    <b>Open planner →</b>
+  </a>
+
   {% if insecure_key %}
     <div class="alert alert-error">The default ingestion key is active. Set <code>INGESTION_API_KEY</code> before sharing this application.</div>
   {% endif %}

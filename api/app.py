@@ -19,6 +19,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.config import Settings
+from app.chain import parse_provinces, plan_chain
 from app.database import (
     IntelSubmission,
     initialize_database,
@@ -92,6 +93,32 @@ def create_app(settings: Settings | None = None) -> Flask:
             maximum_count=maximum_count,
             insecure_key=settings.ingestion_api_key == "change-me",
             sqlite_database=settings.database_url.startswith("sqlite"),
+        )
+
+    @app.route("/chain-strategy", methods=["GET", "POST"])
+    def chain_strategy():
+        attackers_text = request.form.get("attackers", "")
+        targets_text = request.form.get("targets", "")
+        strategy = None
+        error = None
+        if request.method == "POST":
+            try:
+                attackers = parse_provinces(attackers_text, "offense")
+                targets = parse_provinces(targets_text, "defense")
+                if not attackers or not targets:
+                    raise ValueError("Enter at least one province for each kingdom.")
+                strategy = plan_chain(attackers, targets)
+            except ValueError as exc:
+                error = str(exc)
+        hit_count = sum(target is not None for _, target in strategy or [])
+        return render_template(
+            "chain_strategy.html",
+            attackers_text=attackers_text,
+            targets_text=targets_text,
+            strategy=strategy,
+            error=error,
+            hit_count=hit_count,
+            unassigned_count=len(strategy or []) - hit_count,
         )
 
     @app.get("/submissions/<submission_id>")

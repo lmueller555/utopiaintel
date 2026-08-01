@@ -76,6 +76,46 @@ def test_manual_submission_route_is_removed(tmp_path):
     assert b"Manual entry" not in client.get("/dashboard").data
 
 
+def test_chain_strategy_maximizes_valid_unique_hits(tmp_path):
+    client = create_app(make_settings(tmp_path)).test_client()
+    response = client.post(
+        "/chain-strategy",
+        data={
+            "attackers": "Flexible, 120, 1000\nConstrained, 100, 1000\nOut of range, 999, 2000",
+            "targets": "Easy, 90, 950\nHard, 110, 1050\nToo small, 1, 800",
+        },
+    )
+
+    assert response.status_code == 200
+    assert b"2 possible hits" in response.data
+    assert b"Flexible" in response.data and b"Hard" in response.data
+    assert b"Constrained" in response.data and b"Easy" in response.data
+    assert b"No valid target" in response.data
+
+
+def test_chain_strategy_includes_exact_networth_boundaries(tmp_path):
+    client = create_app(make_settings(tmp_path)).test_client()
+    response = client.post(
+        "/chain-strategy",
+        data={
+            "attackers": "Lower, 100, 1000\nUpper, 100, 1000",
+            "targets": "Ninety, 100, 900\nOne ten, 100, 1100",
+        },
+    )
+
+    assert b"2 possible hits" in response.data
+
+
+def test_chain_strategy_reports_invalid_input(tmp_path):
+    client = create_app(make_settings(tmp_path)).test_client()
+    response = client.post(
+        "/chain-strategy", data={"attackers": "Missing numbers", "targets": "Target, 1, 1"}
+    )
+
+    assert response.status_code == 200
+    assert b"must be: province name, offense, networth" in response.data
+
+
 def test_json_submission_is_authenticated_and_persisted(tmp_path):
     settings = make_settings(tmp_path)
     client = create_app(settings).test_client()
